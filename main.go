@@ -1,6 +1,8 @@
 package main
 
 import (
+  "flag"
+
   log "github.com/sirupsen/logrus"
 
   "net"
@@ -8,17 +10,24 @@ import (
 )
 
 func main() {
-  log.Info("Starting GHP...")
-  server := Handler{}
+  network := flag.String("n", "tcp", "network to communicate over")
+  address := flag.String("a", "127.0.0.1:9000", "address to listen on")
+  flag.Parse()
 
-  listener, err := net.Listen("tcp", ":9000")
+  log.Info("Starting GHP...")
+
+  listener, err := net.Listen(*network, *address)
   if err != nil {
-    log.Fatal("Couldn't listen on port :9000")
+    log.Fatalf("Couldn't listen on %s: %s", *address, err.Error())
     return
   }
 
-  log.Info("Listening on port :9000")
-  fcgi.Serve(listener, server)
-  return
+  log.Infof("Listening on %s", *address)
+  server := Handler{}
+  err = fcgi.Serve(listener, server)
+  if err != nil {
+    log.Fatal("Fatal error while listening on %s: %s", *address, err.Error())
+    return
+  }
 }
 
