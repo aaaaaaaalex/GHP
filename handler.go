@@ -3,13 +3,55 @@ package main
 import (
   log "github.com/sirupsen/logrus"
 
-  "fmt"
   "net/http"
+  "text/template"
 )
 
-type Handler struct {}
-func (h Handler) ServeHTTP (res http.ResponseWriter, req *http.Request) {
-  log.Infof("%+v", *req)
-  res.Write([]byte(fmt.Sprintf("%+v\n", *req)))
+// responseBodyRenderer renders the body of a response(the view) against a model
+type responseBodyRenderer struct {
+  responseWriter http.ResponseWriter
+  model interface{}
+  body []byte
+}
+
+// Write the body to a buffer, then attempt to render it as a template
+func (r *responseBodyRenderer) Write (body []byte) (int, error){
+  r.body = body
+
+  template, err := template.New("bodyTemplate").Parse(string(r.body))
+  if err != nil {
+    log.Errorf("Error parsing response body as template: %s", err.Error())
+    return 0, err
+  }
+
+  err = template.Execute(r.responseWriter, r.model)
+  if err != nil {
+    log.Errorf("Error executing response template with model: %s", err.Error())
+    return 0, err
+  }
+
+  return r.responseWriter.Write(r.body)
+}
+
+// Header does not alter the wrapped writers functionality
+func (r *responseBodyRenderer) Header() http.Header {
+  return r.responseWriter.Header()
+}
+
+// WriterHeader does not alter the wrapped writers functionality
+func (r *responseBodyRenderer) WriteHeader(statusCode int){
+  r.responseWriter.WriteHeader(statusCode)
+}
+
+
+// rendered builds a middleware for rendering a response body as a Go template
+func rendered(next http.Handler) http.Handler {
+  return http.HandlerFunc( func(w http.ResponseWriter, r *http.Request) {
+    renderer := responseBodyRenderer{
+       responseWriter: w,
+       model: r,
+    }
+    next.ServeHTTP(&renderer, r)
+  })
 }
 
