@@ -7,7 +7,11 @@ import (
   "text/template"
 )
 
-// responseBodyRenderer renders the body of a response(the view) against a model
+/*
+responseBodyRenderer, implements: http.ResponseWriter
+  intercepts bytes to a wrapped writer, renders as a go template.
+  a model is exposed to the template to aid in dynamic rendering.
+*/
 type responseBodyRenderer struct {
   responseWriter http.ResponseWriter
   model interface{}
@@ -24,13 +28,14 @@ func (r *responseBodyRenderer) Write (body []byte) (int, error){
     return 0, err
   }
 
-  err = template.Execute(r.responseWriter, r.model)
+  // count the number of bytes written to the responsewriter with a counting buffer
+  countedBuffer := countBytes( r.responseWriter )
+  err = template.Execute(countedBuffer, r.model)
   if err != nil {
     log.Errorf("Error executing response template with model: %s", err.Error())
-    return 0, err
   }
 
-  return r.responseWriter.Write(r.body)
+  return countedBuffer.BytesWritten(), err
 }
 
 // Header does not alter the wrapped writers functionality
