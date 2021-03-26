@@ -34,7 +34,7 @@ func (c *countingBuffer) BytesWritten() int {
 }
 
 // countBytes modifies a responseWriter by wrapping it with a counter
-func countBytes(r http.ResponseWriter) countingBuffer {
+func CountBytes(r http.ResponseWriter) countingBuffer {
   return countingBuffer {
     Writer: r,
   }

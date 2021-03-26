@@ -29,7 +29,7 @@ func (r *responseBodyRenderer) Write (body []byte) (int, error){
   }
 
   // count the number of bytes written to the responsewriter with a counting buffer
-  countedBuffer := countBytes( r.responseWriter )
+  countedBuffer := CountBytes( r.responseWriter )
   err = template.Execute(countedBuffer, r.model)
   if err != nil {
     log.Errorf("Error executing response template with model: %s", err.Error())
