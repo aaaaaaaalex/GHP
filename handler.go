@@ -50,7 +50,7 @@ func (r *responseBodyRenderer) WriteHeader(statusCode int){
 
 
 // rendered builds a middleware for rendering a response body as a Go template
-func rendered(next http.Handler) http.Handler {
+func Rendered(next http.Handler) http.Handler {
   return http.HandlerFunc( func(w http.ResponseWriter, r *http.Request) {
     renderer := responseBodyRenderer{
        responseWriter: w,

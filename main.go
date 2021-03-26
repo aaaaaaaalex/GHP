@@ -27,7 +27,7 @@ func main() {
   root := http.Dir(*rootPath)
 
   log.Infof("Listening on %s", *address)
-  server := rendered( http.FileServer(root) )
+  server := Rendered( http.XFileServer(root, "index.gohtml") )
   err = fcgi.Serve(listener, server)
   if err != nil {
     log.Fatal("Fatal error while listening on %s: %s", *address, err.Error())
