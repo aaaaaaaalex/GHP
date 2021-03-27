@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-  network := flag.String("n", "tcp", "network to communicate over")
-  address := flag.String("a", "127.0.0.1:9000", "address to listen on")
-  rootPath := flag.String("d", "/var/www/", "directory to serve from")
+  network :=	flag.String("n", "tcp", "network to communicate over")
+  address :=	flag.String("a", "127.0.0.1:9000", "address to listen on")
+  rootDir :=	flag.String("d", "/var/www/", "directory to serve from")
   flag.Parse()
 
   log.Info("Starting GHP...")
@@ -24,7 +24,7 @@ func main() {
     return
   }
 
-  root := http.Dir(*rootPath)
+  root := http.Dir(*rootDir)
 
   log.Infof("Listening on %s", *address)
   server := Rendered( http.XFileServer(root, "index.gohtml") )
