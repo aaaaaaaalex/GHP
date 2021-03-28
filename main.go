@@ -27,6 +27,8 @@ func main() {
   root := http.Dir(*rootDir)
 
   log.Infof("Listening on %s", *address)
+
+  // use eXperimental fileserver - requires building this project with aaaaaaaalex/gox
   server := Rendered( http.XFileServer(root, "index.gohtml") )
   err = fcgi.Serve(listener, server)
   if err != nil {
