@@ -5,6 +5,7 @@ import (
 
   "io"
   "net/http"
+  "strings"
   "text/template"
 )
 
@@ -42,7 +43,7 @@ func (r *responseBodyRenderer) WriteHeader(statusCode int){
 }
 
 
-// execute the content written to r as a template, writing out to w
+// execute the r's contents as a template, writing out to w
 func execute(w io.Writer, r responseBodyRenderer) error {
   template, err := template.New("bodyTemplate").Parse(string(r.body))
   if err != nil {
@@ -61,7 +62,9 @@ func execute(w io.Writer, r responseBodyRenderer) error {
 
 /*
   RenderedBody decorates a Handler with a responseBodyRenderer middleware.
-    model: a ghp.Model for rendering a template against.
+  Requests to render are identified based on the Content-Type set by 'next's response
+    next:	the handler to wrap
+    model:	the datastructure to expose to templates.
 */
 func RenderedBody(next http.Handler, model interface{}) http.Handler {
   return http.HandlerFunc( func(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +73,11 @@ func RenderedBody(next http.Handler, model interface{}) http.Handler {
 	      responseWriter: w,
       }
       next.ServeHTTP(&renderer, r)
-      _ = execute(w, renderer)
+
+      ct := w.Header().Get("Content-Type")
+      if strings.Contains(ct, "/html") {
+        _ = execute(w, renderer)
+      }
   })
 }
 
