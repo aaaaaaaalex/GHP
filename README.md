@@ -1,3 +1,3 @@
-# (G)o (H)ome(p)age
-GHP is a FastCGI fileserver with support for dynamically-rendered (Go)HTML indexes.
-
+# (G)o (h)ome(p)age
+GHP is a FastCGI auto-indexer similar to the NGINX Auto-index
+feature, but allows for fully customisable index pages via Go Templates
