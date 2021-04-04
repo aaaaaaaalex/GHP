@@ -10,6 +10,11 @@ import (
 )
 
 
+const(
+  mebibyte int = 1<<20
+  defaultMaxBytes int = 2*mebibyte
+)
+
 /*
 responseBodyRenderer, implements: http.ResponseWriter
   this middleware buffers bytes written for rendering as a go template.
@@ -19,16 +24,38 @@ type responseBodyRenderer struct {
   body []byte
   model interface{}
   responseWriter http.ResponseWriter
+  maxBytes int
+  maxBytesExceeded bool
 }
 
-// Write simply cat's bytes to the renderers body
-func (r *responseBodyRenderer) Write(b []byte) (int, error) {
-  if r.body == nil || len(r.body) == 0 {
-    r.body = b
-  } else {
-    r.body = append(r.body, b...)
-  }
+// shouldRender decides if it's a good idea to render the renderer's contents
+func (r *responseBodyRenderer) shouldRender() bool {
+  contentType := r.Header().Get("Content-Type")
+  return strings.Contains(contentType, "/http") || len(contentType) == 0
+}
 
+/*
+Write will buffer bytes for later rendering up to a maximum of `maxBytes`.
+If body size exceeds `maxBytes`, excess bytes are written out (FIFO)
+  ~Mem complx: O(maxBytes + len(b))
+*/
+func (r *responseBodyRenderer) Write(b []byte) (int, error) {
+  if r.body == nil {
+    r.body = make([]byte, 0, r.maxBytes)
+  }
+  r.body = append(r.body, b...) // concatenate body
+
+  bodyLen := len(r.body)
+  if bodyLen > r.maxBytes {
+    if !r.maxBytesExceeded {
+      log.Warn("Response renderer size limit exceeded: response may be only partially rendered.")
+      r.maxBytesExceeded = true
+    }
+
+    overLimit := bodyLen - r.maxBytes
+    r.responseWriter.Write( r.body[0 : overLimit] ) // flush excess
+    r.body = r.body[overLimit : len(r.body)] // preserve tail
+  }
   return len(b), nil
 }
 
@@ -43,7 +70,10 @@ func (r *responseBodyRenderer) WriteHeader(statusCode int){
 }
 
 
-// execute the r's contents as a template, writing out to w
+/*
+execute r's contents as a template, writing out to w.
+  note: if r's maxBytes has been exceeded, only the last maxBytes worth of data will be executed.
+*/
 func execute(w io.Writer, r responseBodyRenderer) error {
   template, err := template.New("bodyTemplate").Parse(string(r.body))
   if err != nil {
@@ -71,11 +101,11 @@ func RenderedBody(next http.Handler, model interface{}) http.Handler {
       renderer := responseBodyRenderer{
 	      model: model,
 	      responseWriter: w,
+	      maxBytes: defaultMaxBytes,
       }
       next.ServeHTTP(&renderer, r)
 
-      ct := w.Header().Get("Content-Type")
-      if strings.Contains(ct, "/html") {
+      if renderer.shouldRender() {
         _ = execute(w, renderer)
       }
   })
