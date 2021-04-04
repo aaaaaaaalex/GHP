@@ -15,9 +15,17 @@ func main() {
   address :=	flag.String("a", "127.0.0.1:9000", "address to listen on")
   rootPath :=	flag.String("d", "/var/www/", "directory to serve from")
   index	  :=	flag.String("i", DefaultIndexFile, "filename of directory indexes")
+  logLevel :=	flag.String("loglevel", "info", "one of: panic, fatal, error, warn, info, debug, trace")
   flag.Parse()
-  log.Info("Starting GHP...")
 
+  ll, err := log.ParseLevel(*logLevel)
+  if err != nil {
+    log.Fatalf("Invalid log level '%s'. Exiting...", *logLevel)
+    return
+  }
+  log.SetLevel(ll)
+
+  log.Info("Starting GHP...")
   root := http.Dir(*rootPath)
   server, err := IndexServer(root, *index)
   if err != nil {
