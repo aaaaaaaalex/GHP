@@ -41,7 +41,6 @@ func main() {
   }
   log.Infof("Listening on %s", *address)
 
-  server = RenderedBody( server, nil )
   if err := fcgi.Serve(listener, server);  err != nil {
     log.Fatal("Fatal error while listening on %s: %s", *address, err.Error())
     return

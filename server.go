@@ -2,9 +2,12 @@ package main
 
 import (
   "errors"
+  "path/filepath"
+  "fmt"
   "net/http"
   "os"
   "strings"
+  "text/template"
 
   log "github.com/sirupsen/logrus"
 )
@@ -80,13 +83,62 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     _ = f.Close()
     f = ff
     s = ss
-    // TODO set content-type before serveContent does
   }
 
-  // We've finally found the right file! Serve its contents
-  http.ServeContent(w, r, s.Name(), s.ModTime(), f)
+  var isIndex bool = true // TODO
 
-  // didn't defer this because it felt cleaner in the case where the file handle reference can be replaced
+  // If we've targeted an index file, render it into a temp file
+  if (isIndex) {
+    pattern := fmt.Sprintf("render_%s_*", s.Name())
+    temp, err := os.CreateTemp( filepath.Dir(s.Name()), pattern )
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Error(err)
+      http.Error(w, http.StatusText(code), code)
+      return
+    }
+
+    templDat := make([]byte, 0, s.Size())
+    _, err = f.Read(templDat)
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error reading template file '%s': %s", s.Name(),  err.Error())
+      http.Error(w, http.StatusText(code), code)
+      _ = temp.Close()
+      return
+    }
+
+    t, err := template.New("bodyTemplate").Parse(string(templDat))
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error parsing template: %s", err.Error())
+      http.Error(w, http.StatusText(code), code)
+      _ = temp.Close()
+      return
+    }
+
+    err = t.Execute(temp, nil)
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error executing response template with model: %s", err.Error())
+      http.Error(w, http.StatusText(code), code)
+      _ = temp.Close()
+      return
+    }
+
+    // replace file to be served with the temp file we just rendered
+    _ = f.Close()
+    f = temp
+    s, err = temp.Stat()
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error retrieving info for rendered temp file: %s",  err.Error())
+      http.Error(w, http.StatusText(code), code)
+      _ = temp.Close()
+      return
+    }
+  }
+  http.ServeContent(w, r, s.Name(), s.ModTime(), f)
   _ = f.Close()
 }
 
