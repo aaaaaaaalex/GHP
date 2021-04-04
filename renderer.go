@@ -22,16 +22,24 @@ responseBodyRenderer, implements: http.ResponseWriter
 */
 type responseBodyRenderer struct {
   body []byte
+  maxBytes int
   model interface{}
   responseWriter http.ResponseWriter
-  maxBytes int
-  maxBytesExceeded bool
 }
 
 // shouldRender decides if it's a good idea to render the renderer's contents
 func (r *responseBodyRenderer) shouldRender() bool {
   contentType := r.Header().Get("Content-Type")
-  return strings.Contains(contentType, "/http") || len(contentType) == 0
+  log.Debugf("response content-type: %s", contentType)
+  return strings.Contains(contentType, "/html") || len(contentType) == 0
+}
+
+// write out any remaining bytes in renderer body and empty it
+func (r *responseBodyRenderer) flush() {
+  if (r.body != nil){
+    log.Debug("flushing renderer body without executing...")
+    r.responseWriter.Write(r.body)
+  }
 }
 
 /*
@@ -43,18 +51,14 @@ func (r *responseBodyRenderer) Write(b []byte) (int, error) {
   if r.body == nil {
     r.body = make([]byte, 0, r.maxBytes)
   }
+  log.Debugf("Appending %d bytes to renderer body...", len(b))
   r.body = append(r.body, b...) // concatenate body
 
   bodyLen := len(r.body)
-  if bodyLen > r.maxBytes {
-    if !r.maxBytesExceeded {
-      log.Warn("Response renderer size limit exceeded: response may be only partially rendered.")
-      r.maxBytesExceeded = true
-    }
-
-    overLimit := bodyLen - r.maxBytes
+  if overLimit := bodyLen - r.maxBytes; overLimit > 0 {
+    log.Warn("renderer body size limit exceeded: response may be only partially rendered.")
     r.responseWriter.Write( r.body[0 : overLimit] ) // flush excess
-    r.body = r.body[overLimit : len(r.body)] // preserve tail
+    r.body = r.body[overLimit : bodyLen] // preserve tail
   }
   return len(b), nil
 }
@@ -75,6 +79,7 @@ execute r's contents as a template, writing out to w.
   note: if r's maxBytes has been exceeded, only the last maxBytes worth of data will be executed.
 */
 func execute(w io.Writer, r responseBodyRenderer) error {
+  log.Debugf("Executing %d bytes...", len(r.body))
   template, err := template.New("bodyTemplate").Parse(string(r.body))
   if err != nil {
     log.Errorf("Error parsing response body as template: %s", err.Error())
@@ -87,7 +92,7 @@ func execute(w io.Writer, r responseBodyRenderer) error {
     return err
   }
 
-  return nil;
+  return nil
 }
 
 /*
@@ -106,7 +111,10 @@ func RenderedBody(next http.Handler, model interface{}) http.Handler {
       next.ServeHTTP(&renderer, r)
 
       if renderer.shouldRender() {
-        _ = execute(w, renderer)
+	_ = execute(w, renderer)
+      } else {
+        log.Info("Serving unrendered response based on non-html content header")
+        renderer.flush()
       }
   })
 }

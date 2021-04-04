@@ -5,6 +5,8 @@ import (
   "net/http"
   "os"
   "strings"
+
+  log "github.com/sirupsen/logrus"
 )
 
 const DefaultIndexFile = "index.gohtml"
@@ -36,6 +38,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     // there is no file or dir found at path. Oh, well.
     _, code := toHTTPError(err)
+    log.Error(err)
     http.Error(w, http.StatusText(code), code)
     return
   }
@@ -44,12 +47,14 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   s, err := f.Stat()
   if err != nil {
     _, code := toHTTPError(err)
+    log.Error(err)
     http.Error(w, http.StatusText(code), code)
     return
   }
 
   // search for index file within requested dirs
   if s.IsDir() {
+    log.Debugf("Request %s targets a directory - searching dir for index '%s'", path, i.index )
     if path[len(path)-1] != '/' {
       // TODO redirect to canonical
       path = path + "/"
@@ -58,6 +63,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     ff, err := i.root.Open(path + i.index)
     if err != nil {
       _, code := toHTTPError(err)
+      log.Error(err)
       http.Error(w, http.StatusText(code), code)
       return
     }
@@ -65,6 +71,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     ss, err := ff.Stat()
     if err != nil {
       _, code := toHTTPError(err)
+      log.Error(err)
       http.Error(w, http.StatusText(code), code)
       return
     }
