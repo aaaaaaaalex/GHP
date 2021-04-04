@@ -1,4 +1,4 @@
-module github.com/aaaaaaaalex/GHP
+module github.com/aaaaaaaalex/ghp
 
 go 1.16
 
