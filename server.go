@@ -117,7 +117,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     c = bytes.NewReader(rb.Bytes())
   }
 
-  log.Debugf("Serving content for request to '%s%s'", path, i.index)
+  log.Debugf("Serving content for request to '%s'", path)
   http.ServeContent(w, r, s.Name(), s.ModTime(), c)
   _ = f.Close()
 }
