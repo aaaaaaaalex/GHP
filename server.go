@@ -1,10 +1,13 @@
 package main
 
 import (
+  "bytes"
   "errors"
   "net/http"
+  "io"
   "os"
   "strings"
+  "text/template"
 
   log "github.com/sirupsen/logrus"
 )
@@ -12,38 +15,41 @@ import (
 const DefaultIndexFile = "index.gohtml"
 
 type indexHandler struct {
-  root http.FileSystem
+  root http.Dir
   index string
 }
 
 /*
 ServeHTTP serves directories that have index files, or file contents if the request doesn't target a directory.
-  Borrows heavily from net/http.fileHandler source code, but with a few modifications / deletions.
+  Borrows heavily from net/http.fileHandler source code.
 */
 func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  path := r.URL.Path
+  var c io.ReadSeeker // the content that will ultimately be served by http.ServeContent for a successful request. Not necessarily a file.
+
+  path := r.URL.Path // the sanitised path to use to target files
   if !strings.HasPrefix(path, "/") {
     path = "/" + path
     r.URL.Path = path
   }
 
-  // direct requests to a dir's index file should be redirected to the parent dir
+  // direct requests to a dir's index file should be redirected to the parent dir's path (or should they?)
   // if strings.HasSuffix(path, i.index) {
     // TODO: redirct this
   //   return
   // {
 
-  // find our file to serve
+  // can we open a file using the request path?
   f, err := i.root.Open(path)
   if err != nil {
-    // there is no file or dir found at path. Oh, well.
     _, code := toHTTPError(err)
     log.Error(err)
     http.Error(w, http.StatusText(code), code)
     return
   }
+  defer f.Close()
+  c = f // for now, let's assume this is the source of content to serve
 
-  // get file metadata
+  // file stat modtime is used for Last-Modified headers, etc.
   s, err := f.Stat()
   if err != nil {
     _, code := toHTTPError(err)
@@ -52,15 +58,25 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // search for index file within requested dirs
+  // when the req targets a dir, we search for an index file inside
   if s.IsDir() {
-    log.Debugf("Request %s targets a directory - searching dir for index '%s'", path, i.index )
     if path[len(path)-1] != '/' {
       // TODO redirect to canonical
       path = path + "/"
     }
 
-    ff, err := i.root.Open(path + i.index)
+    log.Debugf("Request '%s' targets a directory - searching dir for index '%s'", path, i.index)
+    fi, err := i.root.Open(path + i.index)
+    if err != nil {
+      // if the dir is missing an index, we 404 (why would we assume an auto-indexed page is desired??)
+      _, code := toHTTPError(err)
+      log.Error(err)
+      http.Error(w, http.StatusText(code), code)
+      return
+    }
+    defer fi.Close()
+
+    si, err := fi.Stat()
     if err != nil {
       _, code := toHTTPError(err)
       log.Error(err)
@@ -68,25 +84,41 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    ss, err := ff.Stat()
+    // the index file is our template
+    bi := make([]byte, si.Size())
+    bytesRead, err := fi.Read(bi)
     if err != nil {
       _, code := toHTTPError(err)
-      log.Error(err)
+      log.Errorf("Error reading template file '%s': %s", si.Name(),  err.Error())
+      http.Error(w, http.StatusText(code), code)
+      return
+    }
+    log.Debugf("Reading %d bytes from index template '%s%s'", bytesRead, path, i.index)
+
+    t, err := template.New("bodyTemplate").Parse(string(bi))
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error parsing template: %s", err.Error())
       http.Error(w, http.StatusText(code), code)
       return
     }
 
-    // swap f and s with the index we found
-    _ = f.Close()
-    f = ff
-    s = ss
-    // TODO set content-type before serveContent does
+    // prepare a buffer for the rendered content
+    rb := new(bytes.Buffer)
+    err = t.Execute(rb, nil)
+    if err != nil {
+      _, code := toHTTPError(err)
+      log.Errorf("Error executing response template with model: %s", err.Error())
+      http.Error(w, http.StatusText(code), code)
+      return
+    }
+    log.Debugf("Rendered %d bytes from '%s%s'", len(rb.Bytes()), path, i.index)
+
+    c = bytes.NewReader(rb.Bytes())
   }
 
-  // We've finally found the right file! Serve its contents
-  http.ServeContent(w, r, s.Name(), s.ModTime(), f)
-
-  // didn't defer this because it felt cleaner in the case where the file handle reference can be replaced
+  log.Debugf("Serving content for request to '%s'", path)
+  http.ServeContent(w, r, s.Name(), s.ModTime(), c)
   _ = f.Close()
 }
 
@@ -96,7 +128,7 @@ IndexServer acts much like the native http.FileServer implementation.
   Requests to non-directory files will serve the file's contents.
   The default name of a directory's index file is customisable via the 'index' argumentz.
 */
-func IndexServer(root http.FileSystem, index string) (http.Handler, error) {
+func IndexServer(root http.Dir, index string) (http.Handler, error) {
   if strings.Contains(index, "/") {
      return nil, errors.New("Invalid index filename passed: name should not include a leading slash, or parent directories.")
   }
