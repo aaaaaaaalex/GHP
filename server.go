@@ -12,10 +12,10 @@ import (
   log "github.com/sirupsen/logrus"
 )
 
-const DefaultIndexFile = "index.gohtml"
+const defaultIndexFile = "index.gohtml"
 
 type indexHandler struct {
-  root http.Dir
+  root http.FileSystem
   index string
 }
 
@@ -103,9 +103,17 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       return
     }
 
+    // expose the index's siblings
+    siblings, err := f.Readdir(0)
+    if err != nil {
+      log.Errorf("Error reading index's directory: %s", err.Error())
+    }
+
     // prepare a buffer for the rendered content
     rb := new(bytes.Buffer)
-    err = t.Execute(rb, nil)
+    err = t.Execute(rb, map[string]interface{}{
+      "siblings": siblings,
+    })
     if err != nil {
       _, code := toHTTPError(err)
       log.Errorf("Error executing response template with model: %s", err.Error())
@@ -126,9 +134,13 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 IndexServer acts much like the native http.FileServer implementation.
   However, IndexServer will *not* autoindex; if a directory has no index file, requests to it will 404.
   Requests to non-directory files will serve the file's contents.
-  The default name of a directory's index file is customisable via the 'index' argumentz.
+  The name of directory index files is customisable via the 'index' argument - pass "" for the default designated by defaultIndexFile.
 */
-func IndexServer(root http.Dir, index string) (http.Handler, error) {
+func IndexServer(root http.FileSystem, index string) (http.Handler, error) {
+  if index == "" {
+    index = defaultIndexFile
+  }
+
   if strings.Contains(index, "/") {
      return nil, errors.New("Invalid index filename passed: name should not include a leading slash, or parent directories.")
   }
