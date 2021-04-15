@@ -111,9 +111,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     // prepare a buffer for the rendered content
     rb := new(bytes.Buffer)
-    err = t.Execute(rb, map[string]interface{}{
-      "siblings": siblings,
-    })
+    err = t.Execute(rb, siblings)
     if err != nil {
       _, code := toHTTPError(err)
       log.Errorf("Error executing response template with model: %s", err.Error())
