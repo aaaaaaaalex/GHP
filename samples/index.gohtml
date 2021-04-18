@@ -1,0 +1,27 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body class='theme-list theme-bg theme-transitions theme-body-spacing theme-border-radius outset position-relative'>
+
+    {{ range .}}
+    <a class='theme-list-item theme-border-radius theme-file' href="{{.Name}}">
+
+      {{if .IsDir}}
+      <img src='assets/dir.svg'>
+      {{else}}
+      <img src='assets/file.svg'>
+      {{end}}
+      <span class='theme-filename'>{{.Name}}</span>
+      <div class='theme-file-meta'>
+        <img src='assets/db.svg'><span>{{.Size}} bytes</span>
+        <br>
+        <img src='assets/pencil.svg'><span>{{.ModTime}}</span>
+      </div>
+    </a>
+    {{end}}
+
+  </body>
+</html>
+
