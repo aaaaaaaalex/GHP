@@ -27,7 +27,7 @@ func main() {
 
 	log.Info("Starting GHP...")
 	root := http.Dir(*rootPath)
-	server, err := IndexServer(root, *index, indexViewmodel{})
+	server, err := IndexServer(root, *index, NewIndexViewmodel)
 	if err != nil {
 		log.Fatal(err.Error())
 		return

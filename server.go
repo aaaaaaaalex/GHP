@@ -16,19 +16,20 @@ import (
 // Viewmodel encapsulates a means of accessing all template data associated with a view
 type Viewmodel interface {
 	// Data accepts the current request context, and the current directory being indexed
-	Data(*http.Request, http.File) interface{}
+	Data() interface{}
 
 	// Funcs gets a funcmap to expose to views
 	Funcs() template.FuncMap
 }
+type ViewmodelBuilder func(*http.Request, http.File) (Viewmodel, error) // a means of building a stateful viewmodel for each request
+
 
 
 const defaultIndexFile = "index.gohtml"
-
 type indexHandler struct {
 	index string
 	root  http.FileSystem
-	viewmodel Viewmodel
+	newViewmodel ViewmodelBuilder
 }
 
 /*
@@ -107,8 +108,17 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Debugf("Reading %d bytes from index template '%s%s'", bytesRead, path, i.index)
 
+		// construct a viewmodel for the request/view
+		vm, err := i.newViewmodel(r, f)
+		if err != nil {
+			_, code := toHTTPError(err)
+			log.Error(err)
+			http.Error(w, http.StatusText(code), code)
+			return
+		}
+
 		t, err := template.New("bodyTemplate").
-			Funcs(i.viewmodel.Funcs()).
+			Funcs(vm.Funcs()).
 			Parse(string(bi))
 		if err != nil {
 			_, code := toHTTPError(err)
@@ -119,7 +129,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// prepare a buffer for the rendered content
 		rb := new(bytes.Buffer)
-		err = t.Execute(rb, i.viewmodel.Data(r, f))
+		err = t.Execute(rb, vm.Data())
 		if err != nil {
 			_, code := toHTTPError(err)
 			log.Errorf("Error executing response template with model: %s", err.Error())
@@ -142,7 +152,7 @@ IndexServer acts much like the native http.FileServer implementation.
   Requests to non-directory files will serve the file's contents.
   The name of directory index files is customisable via the 'index' argument - pass "" for the default designated by defaultIndexFile.
 */
-func IndexServer(root http.FileSystem, index string, v Viewmodel) (http.Handler, error) {
+func IndexServer(root http.FileSystem, index string, v ViewmodelBuilder) (http.Handler, error) {
 	if index == "" {
 		index = defaultIndexFile
 	}
@@ -154,7 +164,7 @@ func IndexServer(root http.FileSystem, index string, v Viewmodel) (http.Handler,
 	return &indexHandler{
 		root:  root,
 		index: index,
-		viewmodel: v,
+		newViewmodel: v,
 	}, nil
 }
 
