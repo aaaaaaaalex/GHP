@@ -4,10 +4,8 @@
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body class='theme-list theme-bg theme-transitions theme-body-spacing theme-border-radius outset position-relative'>
-
-    {{ range .}}
+    {{range .}}
     <a class='theme-list-item theme-border-radius theme-file' href="{{.Name}}">
-
       {{if .IsDir}}
       <img src='assets/dir.svg'>
       {{else}}
@@ -21,7 +19,6 @@
       </div>
     </a>
     {{end}}
-
   </body>
 </html>
 
