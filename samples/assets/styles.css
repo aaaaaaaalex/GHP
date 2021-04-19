@@ -10,9 +10,9 @@
   --theme-primary-alert: #904E55;
 
   --theme-shadow-h-offset: 6px;
-  --theme-shadow-v-offset: 5px;
+  --theme-shadow-v-offset: 6px;
   --theme-shadow-blur: 10px;
-  --theme-shadow-spread: -5px;
+  --theme-shadow-spread: 0px;
   --theme-shadow-color: var(--theme-primary-neutral-darker);
   --theme-lightsource-color: var(--theme-primary-neutral-brighter);
   --theme-inset-spacing-h: calc(
