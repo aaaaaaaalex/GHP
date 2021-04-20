@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"text/template"
+
+	"github.com/aaaaaaaalex/ghp/util"
 )
 
 // implmentation of indexServer's viewmodel interface
 type indexViewmodel struct {
-	dir http.File // the directory being indexed
 	data interface{} // can be any structure accepted as data by text/template.Execute
 	funcs template.FuncMap
 }
@@ -39,10 +40,10 @@ func NewIndexViewmodel(r *http.Request, dir http.File) (v Viewmodel, err error) 
 		"Request": func() *http.Request {
 			return r
 		},
+		"BaseURL": util.BaseURL,
 	}
 
 	v = indexViewmodel {
-		dir: dir,
 		data: siblings,
 		funcs: funcMap,
 	}
