@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	network := flag.String("n", "tcp", "network to communicate over")
 	address := flag.String("a", "127.0.0.1:9000", "address to listen on")
 	rootPath := flag.String("d", "/var/www/", "directory to serve from")
 	index := flag.String("i", "index.gohtml", "filename of directory indexes")
@@ -34,7 +33,7 @@ func main() {
 	}
 	log.Infof("Serving directory \"%s\"", *rootPath)
 
-	listener, err := net.Listen(*network, *address)
+	listener, err := net.Listen("tcp", *address)
 	if err != nil {
 		log.Fatalf("Couldn't listen on %s: %s", *address, err.Error())
 		return
