@@ -14,7 +14,7 @@ func main() {
 	network := flag.String("n", "tcp", "network to communicate over")
 	address := flag.String("a", "127.0.0.1:9000", "address to listen on")
 	rootPath := flag.String("d", "/var/www/", "directory to serve from")
-	index := flag.String("i", "", "filename of directory indexes")
+	index := flag.String("i", "index.gohtml", "filename of directory indexes")
 	logLevel := flag.String("loglevel", "info", "one of: panic, fatal, error, warn, info, debug, trace")
 	flag.Parse()
 
