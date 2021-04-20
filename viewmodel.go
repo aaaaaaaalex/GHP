@@ -13,7 +13,7 @@ type indexViewmodel struct {
 	funcs template.FuncMap
 }
 
-/* Data is used exclusively to expose the contents of the directory being served 
+/* Data is used exclusively to expose the contents of the directory being served.
 	this conveniently allows templates to reference the "current dir" with a dot.
 	See sample index file for elaboration.
 */
