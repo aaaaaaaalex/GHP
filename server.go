@@ -21,8 +21,8 @@ type Viewmodel interface {
 	// Funcs gets a funcmap to expose to views
 	Funcs() template.FuncMap
 }
-type ViewmodelBuilder func(*http.Request, http.File) (Viewmodel, error) // a means of building a stateful viewmodel for each request
-
+// ViewmodelBuilder builds a Viewmodel for each index request, passing request and directory state
+type ViewmodelBuilder func(*http.Request, http.File) (Viewmodel, error)
 
 
 const defaultIndexFile = "index.gohtml"
@@ -127,7 +127,7 @@ func (i *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// prepare a buffer for the rendered content
+		// render page into a buffer
 		rb := new(bytes.Buffer)
 		err = t.Execute(rb, vm.Data())
 		if err != nil {
